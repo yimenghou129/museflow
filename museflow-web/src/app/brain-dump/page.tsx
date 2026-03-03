@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { StructuredDraftItem } from '@/types/brain-dump';
 
@@ -11,6 +11,22 @@ export default function BrainDumpPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedDraftId, setSavedDraftId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function checkSupabaseHealth() {
+      try {
+        const res = await fetch('/api/health/supabase');
+        const data = await res.json();
+        // eslint-disable-next-line no-console
+        console.log('[MuseFlow] Supabase health:', data);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('[MuseFlow] Supabase health error:', e);
+      }
+    }
+
+    void checkSupabaseHealth();
+  }, []);
 
   async function handleGenerate() {
     if (!rawText.trim()) {
