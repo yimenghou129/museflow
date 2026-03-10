@@ -96,6 +96,12 @@ export default function Home() {
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
               你的执行引擎
             </h2>
+            <Link
+              href="/goals"
+              className="block rounded-lg border border-zinc-700/80 bg-zinc-900/50 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-600 hover:text-zinc-50"
+            >
+              Goals 管理 →
+            </Link>
             <div className="space-y-3 text-sm text-zinc-300">
               <p>
                 MuseFlow 按「容量感」来帮你排期，而不是帮你堆砌理想清单。

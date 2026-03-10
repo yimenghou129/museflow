@@ -6,6 +6,42 @@
 
 ---
 
+### 环境与本地搭建（Env / Setup）
+
+1. **克隆并进入应用目录**
+   ```bash
+   git clone https://github.com/yimenghou129/museflow.git
+   cd museflow/museflow_web
+   ```
+
+2. **安装依赖**
+   ```bash
+   pnpm install
+   ```
+
+3. **配置环境变量**
+   - 在本目录新建 `.env.local`（勿提交到 Git）。
+   - 必填变量：
+     ```env
+     NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
+     NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_PUBLIC_KEY
+     OPENAI_API_KEY=sk-...
+     ```
+   - Supabase：控制台 → **Settings → API**，复制 Project URL 与 anon public key。
+   - OpenAI：在 OpenAI 控制台创建 API Key。
+
+4. **Supabase 数据库**
+   - 在 Supabase 项目里执行 migrations：仓库根目录 `supabase/migrations/` 下的 `.sql` 按文件名顺序在 **SQL Editor** 中执行（或使用 Supabase CLI：`supabase db push`）。
+   - 当前包含：`goals`、`tasks` 等表及 RLS policy；PRD 中的其他表（如 `BrainDump`、`DraftPlan`）若需使用也需在 Supabase 中建表。
+
+5. **启动开发服务器**
+   ```bash
+   pnpm dev
+   ```
+   - 浏览器打开 `http://localhost:3000`。
+
+---
+
 ### 技术栈
 
 - Next.js 16（App Router，Turbopack）
