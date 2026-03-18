@@ -4,12 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 
 type PriorityStr = 'high' | 'medium' | 'low';
 
-function priorityToInt(p: PriorityStr): number {
-  if (p === 'high') return 3;
-  if (p === 'medium') return 2;
-  return 1;
-}
-
 function extractJsonArray(content: string): unknown {
   // 优先直接解析
   try {
@@ -176,29 +170,12 @@ Rules:
     }
 
     const limited = tasks.slice(0, 8);
-    const tasksToInsert = limited.map((t) => ({
-      user_id: user.id,
-      goal_id: goalId,
-      title: t.title,
-      estimated_duration: t.duration,
-      priority: priorityToInt(t.priority),
-      status: 'todo',
-      due_date: null,
-      is_today: false,
-    }));
 
-    const { error: insertError } = await supabase
-      .from('tasks')
-      .insert(tasksToInsert);
-
-    if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ ok: true, count: tasksToInsert.length });
+    return NextResponse.json({
+      ok: true,
+      tasks: limited,
+      count: limited.length,
+    });
   } catch (err) {
     console.error('tasks/generate-from-goal error:', err);
     return NextResponse.json(

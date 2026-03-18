@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import {
+  AITaskPreviewEditor,
+  type PreviewTask,
+} from '@/components/AITaskPreviewEditor';
 
 type Goal = {
   id: string;
@@ -43,6 +47,8 @@ export default function GoalDetailPage() {
   const [creating, setCreating] = useState(false);
   const [goalDescription, setGoalDescription] = useState<string>('');
   const [decomposing, setDecomposing] = useState(false);
+  const [previewTasks, setPreviewTasks] = useState<PreviewTask[]>([]);
+  const [previewSaving, setPreviewSaving] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
@@ -181,12 +187,67 @@ export default function GoalDetailPage() {
         return;
       }
 
-      setGoalDescription('');
-      await fetchData();
+      const aiTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      if (aiTasks.length === 0) {
+        setError('AI 返回了空的 tasks，请换一个更具体的 goal description 再试。');
+        return;
+      }
+
+      const nextPreview: PreviewTask[] = aiTasks.map((t) => ({
+        tempId:
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : String(Math.random()).slice(2),
+        title: t.title ?? '',
+        duration: typeof t.duration === 'number' ? t.duration : '',
+        priority: (t.priority ?? '') as PreviewTask['priority'],
+      }));
+
+      setPreviewTasks(nextPreview);
     } catch (e) {
       setError(e instanceof Error ? e.message : '生成 tasks 失败');
     } finally {
       setDecomposing(false);
+    }
+  }
+
+  async function handleConfirmAndSave(preview: PreviewTask[]) {
+    setError(null);
+    setPreviewSaving(true);
+    try {
+      if (preview.length === 0) {
+        setError('预览 tasks 为空，请至少保留一条再保存。');
+        return;
+      }
+
+      const cleaned = preview.map((t) => ({
+        title: t.title.trim(),
+        duration: t.duration as number,
+        priority: t.priority as 'high' | 'medium' | 'low',
+      }));
+
+      const res = await fetch('/api/tasks/save-preview-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goalId, tasks: cleaned }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? '保存失败');
+        return;
+      }
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      setPreviewTasks([]);
+      setGoalDescription('');
+      await fetchData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setPreviewSaving(false);
     }
   }
 
@@ -228,7 +289,8 @@ export default function GoalDetailPage() {
           Goal description → Generate Tasks
         </h2>
         <p className="mt-1 text-xs text-zinc-500">
-          输入一个目标描述，系统会调用 LLM 自动生成 5-8 个可执行 tasks，并写入 Supabase。
+          输入一个目标描述，系统会调用 LLM 自动生成 5-8 个可执行 tasks，
+          并先展示可编辑预览。确认后才会写入 Supabase。
         </p>
         <textarea
           value={goalDescription}
@@ -247,6 +309,17 @@ export default function GoalDetailPage() {
           </button>
         </div>
       </div>
+
+      {previewTasks.length > 0 && (
+        <AITaskPreviewEditor
+          initialTasks={previewTasks}
+          confirming={previewSaving}
+          onCancel={() => setPreviewTasks([])}
+          onConfirm={async (next) => {
+            await handleConfirmAndSave(next);
+          }}
+        />
+      )}
 
       <form onSubmit={handleCreateTask} className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
         <h2 className="text-sm font-medium text-zinc-300">新建 task</h2>
