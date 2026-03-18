@@ -133,7 +133,7 @@ export default function GoalDetailPage() {
   async function handleAddToTop3(id: string) {
     setError(null);
     try {
-      const res = await fetch('/api/tasks/top3', {
+      const res = await fetch('/api/tasks/today-top3', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ taskId: id }),
