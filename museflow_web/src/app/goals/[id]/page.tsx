@@ -20,6 +20,7 @@ type Task = {
   status: string;
   due_date: string | null;
   created_at: string;
+  is_top3?: boolean;
 };
 
 const STATUS_OPTIONS = [
@@ -53,7 +54,7 @@ export default function GoalDetailPage() {
     }
     const [goalRes, tasksRes] = await Promise.all([
       supabase.from('goals').select('id, title, deadline, priority').eq('id', goalId).single(),
-      supabase.from('tasks').select('id, title, estimated_duration, priority, status, due_date, created_at').eq('goal_id', goalId).order('created_at', { ascending: false }),
+      supabase.from('tasks').select('id, title, estimated_duration, priority, status, due_date, created_at, is_top3').eq('goal_id', goalId).order('created_at', { ascending: false }),
     ]);
     if (goalRes.error) {
       setError(goalRes.error.message);
@@ -127,6 +128,25 @@ export default function GoalDetailPage() {
     if (err) setError(err.message);
     else void fetchData();
     setDeletingId(null);
+  }
+
+  async function handleAddToTop3(id: string) {
+    setError(null);
+    try {
+      const res = await fetch('/api/tasks/top3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? '设置 Top3 失败');
+      } else {
+        void fetchData();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '设置 Top3 失败');
+    }
   }
 
   if (loading) {
@@ -255,7 +275,7 @@ export default function GoalDetailPage() {
                   {t.due_date && ` · 截止 ${t.due_date.slice(0, 10)}`}
                 </p>
               </div>
-              <div className="flex min-w-[200px] items-center gap-2">
+                <div className="flex min-w-[260px] items-center gap-2">
                 <select
                   value={t.status}
                   onChange={(e) => handleStatusChange(t.id, e.target.value)}
@@ -268,6 +288,13 @@ export default function GoalDetailPage() {
                     </option>
                   ))}
                 </select>
+                    <button
+                      type="button"
+                      onClick={() => handleAddToTop3(t.id)}
+                      className="rounded-lg border border-emerald-700/60 bg-emerald-900/20 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/40"
+                    >
+                      Add to Top3
+                    </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteTask(t.id)}

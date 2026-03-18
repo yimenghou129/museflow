@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { TodayDate } from '@/components/TodayDate';
 
 type Task = {
   id: string;
   title: string;
   status: string;
+  is_top3?: boolean;
 };
 
 export default async function TodayPage() {
@@ -20,21 +22,14 @@ export default async function TodayPage() {
 
   const { data: tasksRaw, error } = await supabase
     .from('tasks')
-    .select('id, title, status')
+    .select('id, title, status, is_top3')
     .neq('status', 'done')
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true });
 
   const tasks: Task[] = Array.isArray(tasksRaw) ? tasksRaw : [];
-  const top3 = tasks.slice(0, 3);
-  const otherTasks = tasks.slice(3);
-
-  const todayStr = new Date().toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'short',
-  });
+  const top3 = tasks.filter((t) => t.is_top3).slice(0, 3);
+  const otherTasks = tasks.filter((t) => !t.is_top3);
 
   return (
     <div className="min-h-screen bg-zinc-50 p-6">
@@ -48,7 +43,7 @@ export default async function TodayPage() {
           </Link>
           <div className="mt-2 flex items-baseline justify-between gap-4">
             <h1 className="text-2xl font-semibold text-zinc-900">Today</h1>
-            <p className="text-sm text-zinc-500">{todayStr}</p>
+            <TodayDate />
           </div>
           <p className="mt-1 text-zinc-600">
             今日 Top 3 · 剩余容量 · 快捷操作（完成 / 延期 / 我卡住了）
