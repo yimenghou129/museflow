@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { TodayDate } from '@/components/TodayDate';
-import { TodayTop3ManualSelect } from '@/components/TodayTop3ManualSelect';
+import { TodayPageClient } from '@/components/TodayPageClient';
 
 type Task = {
   id: string;
   title: string;
+  due_date: string | null;
+  priority: number | null;
   status: string;
-  is_today: boolean;
 };
 
 export default async function TodayPage() {
@@ -21,9 +21,10 @@ export default async function TodayPage() {
     redirect('/login?next=/today');
   }
 
-  const { data: tasksRaw, error } = await supabase
+  const { data: tasksRaw } = await supabase
     .from('tasks')
-    .select('id, title, status, is_today')
+    .select('id, title, due_date, priority, status')
+    .eq('user_id', user.id)
     .neq('status', 'done')
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true });
@@ -34,29 +35,12 @@ export default async function TodayPage() {
     <div className="min-h-screen bg-zinc-50 p-6">
       <div className="mx-auto max-w-2xl">
         <header className="mb-8">
-          <Link
-            href="/"
-            className="text-sm text-zinc-500 hover:text-zinc-800"
-          >
+          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-800">
             ← MuseFlow
           </Link>
-          <div className="mt-2 flex items-baseline justify-between gap-4">
-            <h1 className="text-2xl font-semibold text-zinc-900">Today</h1>
-            <TodayDate />
-          </div>
-          <p className="mt-1 text-zinc-600">
-            今日 Top 3 · 剩余容量 · 快捷操作（完成 / 延期 / 我卡住了）
-          </p>
         </header>
 
-        {/* Top3（手动选择）+ Task List */}
-        {error ? (
-          <p className="text-sm text-red-500" role="alert">
-            加载任务出错：{error.message}
-          </p>
-        ) : (
-          <TodayTop3ManualSelect initialTasks={tasks} />
-        )}
+        <TodayPageClient initialTasks={tasks} />
       </div>
     </div>
   );
