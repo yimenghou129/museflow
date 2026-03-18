@@ -9,6 +9,7 @@ type Task = {
   due_date: string | null;
   priority: number | null;
   status: string;
+  is_today?: boolean | null;
 };
 
 export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
@@ -20,7 +21,11 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
   const [newTitle, setNewTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const top3 = useMemo(() => tasks.slice(0, 3), [tasks]);
+  // Top3 由数据库字段 is_today 决定，而不是由排序后的前 3 条决定
+  const top3 = useMemo(
+    () => tasks.filter((t) => t.is_today).slice(0, 3),
+    [tasks]
+  );
 
   async function refreshTasks() {
     setLoading(true);
@@ -38,7 +43,7 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
 
       const { data, error: fetchError } = await supabase
         .from('tasks')
-        .select('id, title, due_date, priority, status')
+        .select('id, title, due_date, priority, status, is_today')
         .eq('user_id', user.id)
         .neq('status', 'done')
         .order('priority', { ascending: false })

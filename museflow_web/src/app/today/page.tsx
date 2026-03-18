@@ -9,6 +9,7 @@ type Task = {
   due_date: string | null;
   priority: number | null;
   status: string;
+  is_today: boolean | null;
 };
 
 export default async function TodayPage() {
@@ -23,7 +24,7 @@ export default async function TodayPage() {
 
   const { data: tasksRaw } = await supabase
     .from('tasks')
-    .select('id, title, due_date, priority, status')
+    .select('id, title, due_date, priority, status, is_today')
     .eq('user_id', user.id)
     .neq('status', 'done')
     .order('priority', { ascending: false })
