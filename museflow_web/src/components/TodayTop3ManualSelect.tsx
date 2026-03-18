@@ -73,7 +73,7 @@ export function TodayTop3ManualSelect({
     <>
       {/* Top3 区域 */}
       <section className="mb-8 rounded-xl border border-zinc-200 bg-white p-4">
-        <h2 className="text-sm font-medium text-zinc-900">Top3（is_today=true）</h2>
+        <h2 className="text-sm font-medium text-zinc-900">Top3</h2>
         {top3.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">
             还没有选择 Top3。下面的任务列表里可以勾选最多 3 个。
