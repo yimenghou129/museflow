@@ -8,11 +8,41 @@ type Task = {
   title: string;
   due_date: string | null;
   priority: number | null;
+  estimated_duration: number | null;
   status: string;
   is_today?: boolean | null;
 };
 
-export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
+function priorityScore(p: Task['priority'] | null): number {
+  if (p == null) return 1;
+  if (typeof p === 'number') {
+    if (!Number.isFinite(p)) return 1;
+    return p >= 3 ? 3 : p === 2 ? 2 : 1;
+  }
+  return 1;
+}
+
+function parseDateToUTCms(d: string | null): number {
+  if (!d) return Number.POSITIVE_INFINITY;
+  const parts = d.split('-').map((x) => Number(x));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const [y, m, day] = parts;
+  return Date.UTC(y, m - 1, day);
+}
+
+function parseDuration(d: number | null): number {
+  return d != null && Number.isFinite(d) ? d : Number.POSITIVE_INFINITY;
+}
+
+export function TodayPageClient({
+  initialTasks,
+  autoRecommended,
+}: {
+  initialTasks: Task[];
+  autoRecommended: boolean;
+}) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +53,25 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
   const [updatingTop3Id, setUpdatingTop3Id] = useState<string | null>(null);
 
   // Top3 由数据库字段 is_today 决定，而不是由排序后的前 3 条决定
-  const top3 = useMemo(
-    () => tasks.filter((t) => t.is_today === true).slice(0, 3),
-    [tasks]
-  );
+  const top3 = useMemo(() => {
+    const picked = tasks.filter((t) => t.is_today === true);
+    const ranked = [...picked].sort((a, b) => {
+      const ap = priorityScore(a.priority);
+      const bp = priorityScore(b.priority);
+      if (bp !== ap) return bp - ap;
+
+      const ad = parseDateToUTCms(a.due_date);
+      const bd = parseDateToUTCms(b.due_date);
+      if (ad !== bd) return ad - bd;
+
+      const at = parseDuration(a.estimated_duration);
+      const bt = parseDuration(b.estimated_duration);
+      if (at !== bt) return at - bt;
+
+      return 0;
+    });
+    return ranked.slice(0, 3);
+  }, [tasks]);
 
   const selectedCount = useMemo(
     () => tasks.filter((t) => t.is_today === true).length,
@@ -49,7 +94,7 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
 
       const { data, error: fetchError } = await supabase
         .from('tasks')
-        .select('id, title, due_date, priority, status, is_today')
+        .select('id, title, due_date, priority, status, is_today, estimated_duration')
         .eq('user_id', user.id)
         .neq('status', 'done')
         .order('priority', { ascending: false })
@@ -167,8 +212,19 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
                 className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
               >
                 <span className="text-zinc-900">{t.title}</span>
-                <span className="text-xs uppercase tracking-wide text-zinc-500">
-                  priority: {t.priority ?? '-'}
+                <span className="text-right">
+                  {autoRecommended && (
+                    <span className="mb-1 inline-block rounded-full border border-emerald-300/40 bg-emerald-900/20 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
+                      Auto-selected
+                    </span>
+                  )}
+                  <span className="block text-xs uppercase tracking-wide text-zinc-500">
+                    priority: {t.priority ?? '-'}
+                  </span>
+                  <span className="block text-xs text-zinc-500">
+                    due: {t.due_date ? t.due_date.slice(0, 10) : '-'} · est:{' '}
+                    {t.estimated_duration ?? '-'}m
+                  </span>
                 </span>
               </li>
             ))}
