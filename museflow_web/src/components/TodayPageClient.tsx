@@ -20,10 +20,16 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [saving, setSaving] = useState(false);
+  const [updatingTop3Id, setUpdatingTop3Id] = useState<string | null>(null);
 
   // Top3 由数据库字段 is_today 决定，而不是由排序后的前 3 条决定
   const top3 = useMemo(
-    () => tasks.filter((t) => t.is_today).slice(0, 3),
+    () => tasks.filter((t) => t.is_today === true).slice(0, 3),
+    [tasks]
+  );
+
+  const selectedCount = useMemo(
+    () => tasks.filter((t) => t.is_today === true).length,
     [tasks]
   );
 
@@ -89,6 +95,45 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
       setError(e instanceof Error ? e.message : '创建 task 失败');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function setTaskIsToday(taskId: string, next: boolean) {
+    setError(null);
+    setUpdatingTop3Id(taskId);
+    try {
+      const supabase = createClient();
+
+      if (next) {
+        if (selectedCount >= 3) {
+          setError('Top3 已满：请先取消一个任务再选择。');
+          return;
+        }
+
+        const res = await fetch('/api/tasks/today-top3', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? '设置 Top3 失败');
+          return;
+        }
+      } else {
+        // 取消选中一定允许：直接把 is_today=false
+        const { error: updateError } = await supabase
+          .from('tasks')
+          .update({ is_today: false })
+          .eq('id', taskId);
+        if (updateError) throw updateError;
+      }
+
+      await refreshTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '更新失败');
+    } finally {
+      setUpdatingTop3Id(null);
     }
   }
 
@@ -189,22 +234,43 @@ export function TodayPageClient({ initialTasks }: { initialTasks: Task[] }) {
             </li>
           )}
 
-          {tasks.map((t) => (
-            <li
-              key={t.id}
-              className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <div className="truncate font-medium text-zinc-900">{t.title}</div>
-                <div className="text-xs text-zinc-500">
-                  due: {t.due_date ? t.due_date.slice(0, 10) : '-'}
+          {tasks.map((t) => {
+            const checked = t.is_today === true;
+            const disabled = !checked && selectedCount >= 3;
+
+            return (
+              <li
+                key={t.id}
+                className={[
+                  'flex flex-col gap-1 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between',
+                  checked
+                    ? 'border-emerald-400/60 bg-emerald-900/10'
+                    : 'border-zinc-200 bg-zinc-50',
+                ].join(' ')}
+              >
+                <label className="flex min-w-0 cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled || updatingTop3Id === t.id}
+                    onChange={(e) => void setTaskIsToday(t.id, e.target.checked)}
+                    className="mt-1 h-4 w-4 accent-emerald-500"
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-zinc-900">
+                      {t.title}
+                    </div>
+                    <div className="text-xs text-zinc-500">
+                      due: {t.due_date ? t.due_date.slice(0, 10) : '-'}
+                    </div>
+                  </div>
+                </label>
+                <div className="text-xs uppercase tracking-wide text-zinc-500">
+                  priority: {t.priority ?? '-'}
                 </div>
-              </div>
-              <div className="text-xs uppercase tracking-wide text-zinc-500">
-                priority: {t.priority ?? '-'}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
