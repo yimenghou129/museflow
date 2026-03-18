@@ -41,6 +41,8 @@ export default function GoalDetailPage() {
   const [createPriority, setCreatePriority] = useState<string>('');
   const [createDueDate, setCreateDueDate] = useState('');
   const [creating, setCreating] = useState(false);
+  const [goalDescription, setGoalDescription] = useState<string>('');
+  const [decomposing, setDecomposing] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
@@ -149,6 +151,45 @@ export default function GoalDetailPage() {
     }
   }
 
+  async function handleGenerateTasksFromGoal() {
+    const description = goalDescription.trim();
+    if (!description) {
+      setError('请先输入 goal description');
+      return;
+    }
+    if (description.length < 8) {
+      setError('goal description 太短，请补充更具体的目标');
+      return;
+    }
+
+    setDecomposing(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/tasks/generate-from-goal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goalDescription: description, goalId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? '生成 tasks 失败');
+        return;
+      }
+
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
+
+      setGoalDescription('');
+      await fetchData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '生成 tasks 失败');
+    } finally {
+      setDecomposing(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl px-6 py-10">
@@ -179,6 +220,32 @@ export default function GoalDetailPage() {
           {goal.deadline ? `截止：${goal.deadline.slice(0, 10)}` : '无截止'}
           {goal.priority != null && ` · 优先级 ${goal.priority}`}
         </p>
+      </div>
+
+      {/* Goal description -> LLM -> tasks */}
+      <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+        <h2 className="text-sm font-medium text-zinc-300">
+          Goal description → Generate Tasks
+        </h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          输入一个目标描述，系统会调用 LLM 自动生成 5-8 个可执行 tasks，并写入 Supabase。
+        </p>
+        <textarea
+          value={goalDescription}
+          onChange={(e) => setGoalDescription(e.target.value)}
+          placeholder="例如：做一个 AI productivity app 并上线 MVP"
+          className="mt-3 min-h-[100px] w-full resize-y rounded-lg border border-zinc-700 bg-zinc-900/60 px-3 py-2 text-zinc-50 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+        />
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleGenerateTasksFromGoal}
+            disabled={decomposing}
+            className="rounded-lg bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-200 disabled:opacity-50"
+          >
+            {decomposing ? 'Generating…' : 'Generate Tasks'}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleCreateTask} className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
