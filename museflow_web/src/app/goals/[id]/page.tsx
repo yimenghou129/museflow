@@ -187,18 +187,26 @@ export default function GoalDetailPage() {
         return;
       }
 
-      const aiTasks = Array.isArray(data.tasks) ? data.tasks : [];
+      type AiTask = {
+        title?: unknown;
+        duration?: unknown;
+        priority?: unknown;
+      };
+
+      const aiTasksRaw = Array.isArray(data.tasks) ? data.tasks : [];
+      const aiTasks: AiTask[] = aiTasksRaw as AiTask[];
+
       if (aiTasks.length === 0) {
         setError('AI 返回了空的 tasks，请换一个更具体的 goal description 再试。');
         return;
       }
 
-      const nextPreview: PreviewTask[] = aiTasks.map((t) => ({
+      const nextPreview: PreviewTask[] = aiTasks.map((t: AiTask) => ({
         tempId:
           typeof crypto !== 'undefined' && 'randomUUID' in crypto
             ? crypto.randomUUID()
             : String(Math.random()).slice(2),
-        title: t.title ?? '',
+        title: typeof t.title === 'string' ? t.title : '',
         duration: typeof t.duration === 'number' ? t.duration : '',
         priority: (t.priority ?? '') as PreviewTask['priority'],
       }));
