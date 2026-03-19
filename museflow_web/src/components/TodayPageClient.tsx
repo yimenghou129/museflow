@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 type Task = {
@@ -46,11 +46,18 @@ export function TodayPageClient({
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [updatingTop3Id, setUpdatingTop3Id] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   // Top3 由数据库字段 is_today 决定，而不是由排序后的前 3 条决定
   const top3 = useMemo(() => {
@@ -182,6 +189,33 @@ export function TodayPageClient({
     }
   }
 
+  async function rescheduleTask(taskId: string) {
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/tasks/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? '延期失败');
+        return;
+      }
+
+      if (data.due_date) {
+        setNotice(`已延后到 ${String(data.due_date).slice(0, 10)}`);
+      } else {
+        setNotice('已延期');
+      }
+
+      await refreshTasks();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '延期失败');
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1️⃣ Top Section */}
@@ -195,6 +229,11 @@ export function TodayPageClient({
         {error && (
           <p className="mt-3 text-sm text-red-500" role="alert">
             {error}
+          </p>
+        )}
+        {notice && (
+          <p className="mt-3 text-sm text-emerald-700" role="status">
+            {notice}
           </p>
         )}
 
@@ -212,7 +251,7 @@ export function TodayPageClient({
                 className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
               >
                 <span className="text-zinc-900">{t.title}</span>
-                <span className="text-right">
+                <div className="text-right">
                   {autoRecommended && (
                     <span className="mb-1 inline-block rounded-full border border-emerald-300/40 bg-emerald-900/20 px-2 py-0.5 text-[11px] font-medium text-emerald-200">
                       Auto-selected
@@ -225,7 +264,14 @@ export function TodayPageClient({
                     due: {t.due_date ? t.due_date.slice(0, 10) : '-'} · est:{' '}
                     {t.estimated_duration ?? '-'}m
                   </span>
-                </span>
+                  <button
+                    type="button"
+                    onClick={() => void rescheduleTask(t.id)}
+                    className="mt-2 rounded-lg border border-zinc-700 bg-zinc-900/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900/30"
+                  >
+                    Postpone
+                  </button>
+                </div>
               </li>
             ))}
           </ol>
@@ -321,8 +367,17 @@ export function TodayPageClient({
                     </div>
                   </div>
                 </label>
-                <div className="text-xs uppercase tracking-wide text-zinc-500">
-                  priority: {t.priority ?? '-'}
+                <div className="flex items-center gap-3">
+                  <div className="text-xs uppercase tracking-wide text-zinc-500">
+                    priority: {t.priority ?? '-'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void rescheduleTask(t.id)}
+                    className="rounded-lg border border-zinc-700 bg-zinc-900/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900/30"
+                  >
+                    Postpone
+                  </button>
                 </div>
               </li>
             );
